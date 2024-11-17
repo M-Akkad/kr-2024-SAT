@@ -1,157 +1,249 @@
-import sys
-sys.setrecursionlimit(2000)  # Increase recursion limit
+from typing import List, Dict, Optional, Tuple
+import time
+
 
 class SATSolver:
-    def __init__(self, filename):
+    def __init__(self):
+        self.num_vars: int = 0
+        self.num_clauses: int = 0
+        self.clauses: List[List[int]] = []
+        self.assignment: Dict[int, bool] = {}
+
+    def read_dimacs(self, filename: str) -> None:
+        """Read DIMACS format file."""
         self.clauses = []
-        self.num_vars = 0
-        self.load_dimacs(filename)
-
-    def load_dimacs(self, filename):
-        """Loads DIMACS format input"""
-        with open(filename, 'r') as file:
-            for line in file:
+        with open(filename, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('c'):
+                    continue
                 if line.startswith('p'):
-                    _, _, num_vars, _ = line.split()
-                    self.num_vars = int(num_vars)
-                elif not line.startswith('c') and line.strip():
-                    self.clauses.append([int(x) for x in line.strip().split() if x != '0'])
+                    # p cnf <num_vars> <num_clauses>
+                    parts = line.split()
+                    self.num_vars = int(parts[2])
+                    self.num_clauses = int(parts[3])
+                else:
+                    # Read clause: list of integers ending with 0
+                    clause = [int(x) for x in line.split()]
+                    if clause[-1] == 0:
+                        clause.pop()  # Remove trailing 0
+                        self.clauses.append(clause)
 
-    def is_satisfiable(self):
-        """Starts the DPLL algorithm"""
-        assignment = {}
-        return self.dpll(self.clauses, assignment)
+    def write_solution(self, filename: str) -> None:
+        """Write solution in DIMACS format."""
+        with open(filename + '.out', 'w') as f:
+            if self.assignment:
+                # Write assignment for each variable
+                for var in range(1, self.num_vars + 1):
+                    value = self.assignment.get(var, True)  # Default to True if unassigned
+                    f.write(f"{var if value else -var} 0\n")
 
-    def dpll(self, clauses, assignment):
-        """DPLL Algorithm with Unit Propagation and Pure Literal Elimination"""
-        clauses, assignment = self.unit_propagation(clauses, assignment)
-
-        if all(any(lit in assignment and assignment[lit] for lit in clause) for clause in clauses):
-            return assignment
-
-        if any(all(lit in assignment and not assignment[lit] for lit in clause) for clause in clauses):
-            return False
-
-        unassigned = {abs(lit) for clause in clauses for lit in clause if lit not in assignment}
-        if not unassigned:
-            return False
-
-        lit = next(iter(unassigned))
-        for value in [True, False]:
-            assignment[lit] = value
-            result = self.dpll(clauses, assignment)
-            if result:
-                return result
-            del assignment[lit]
-        return False
-
-    def unit_propagation(self, clauses, assignment):
-        """Perform unit propagation"""
+    def unit_propagation(self, clauses: List[List[int]], assignment: Dict[int, bool]) -> Tuple[
+        Optional[List[List[int]]], Optional[Dict[int, bool]]]:
+        """Perform unit propagation on clauses."""
         while True:
-            unit_clauses = [clause for clause in clauses if len(clause) == 1]
-            if not unit_clauses:
+            unit_clause = None
+            for clause in clauses:
+                unassigned = []
+                is_satisfied = False
+
+                for lit in clause:
+                    var = abs(lit)
+                    if var in assignment:
+                        if (lit > 0) == assignment[var]:
+                            is_satisfied = True
+                            break
+                    else:
+                        unassigned.append(lit)
+
+                if not is_satisfied and len(unassigned) == 1:
+                    unit_clause = unassigned[0]
+                    break
+
+            if unit_clause is None:
                 break
-            for clause in unit_clauses:
-                lit = clause[0]
-                if abs(lit) in assignment and assignment[abs(lit)] != (lit > 0):
-                    return clauses, False
-                assignment[abs(lit)] = lit > 0
-                clauses = [c for c in clauses if lit not in c]
-                for c in clauses:
-                    if -lit in c:
-                        c.remove(-lit)
+
+            var = abs(unit_clause)
+            assignment[var] = unit_clause > 0
+
+            # Simplify clauses
+            new_clauses = []
+            for clause in clauses:
+                unassigned = []
+                is_satisfied = False
+
+                for lit in clause:
+                    var = abs(lit)
+                    if var in assignment:
+                        if (lit > 0) == assignment[var]:
+                            is_satisfied = True
+                            break
+                    else:
+                        unassigned.append(lit)
+
+                if not is_satisfied:
+                    if not unassigned:
+                        return None, None  # Conflict detected
+                    new_clauses.append(unassigned)
+
+            clauses = new_clauses
+
         return clauses, assignment
 
-    def solve(self):
-        """Solve the SAT problem and return the assignments"""
-        result = self.is_satisfiable()
-        if result:
-            return {lit: val for lit, val in result.items() if val}
-        return None
+    def dpll(self, clauses: List[List[int]], assignment: Dict[int, bool]) -> bool:
+        """DPLL algorithm implementation."""
+        # Unit propagation
+        clauses, assignment = self.unit_propagation(clauses, assignment)
+        if clauses is None:
+            return False
+
+        # Check if all clauses are satisfied
+        if not clauses:
+            self.assignment = assignment
+            return True
+
+        # Choose a variable
+        for clause in clauses:
+            for lit in clause:
+                var = abs(lit)
+                if var not in assignment:
+                    # Try assigning True
+                    new_assignment = assignment.copy()
+                    new_assignment[var] = True
+                    if self.dpll(clauses, new_assignment):
+                        return True
+
+                    # Try assigning False
+                    new_assignment = assignment.copy()
+                    new_assignment[var] = False
+                    if self.dpll(clauses, new_assignment):
+                        return True
+
+                    return False
+
+        return False
+
+    def solve(self) -> bool:
+        """Solve the SAT problem."""
+        return self.dpll(self.clauses, {})
+
+    def print_sudoku_solution(self):
+        """Print Sudoku solution in a readable format."""
+        if not self.assignment:
+            print("No solution found!")
+            return
+
+        # Create 9x9 grid
+        grid = [[0 for _ in range(9)] for _ in range(9)]
+
+        # Fill in the grid based on the assignment
+        for var in range(1, self.num_vars + 1):
+            if self.assignment.get(var, False):
+                # Convert variable number to row, col, value
+                var_str = str(var)
+                if len(var_str) == 3:  # Only process valid cell assignments
+                    row = int(var_str[0]) - 1
+                    col = int(var_str[1]) - 1
+                    val = int(var_str[2])
+                    if 0 <= row < 9 and 0 <= col < 9:
+                        grid[row][col] = val
+
+        # Print the grid
+        print("\nSudoku Solution:")
+        print("  " + "-" * 25)
+        for i in range(9):
+            print("| ", end="")
+            for j in range(9):
+                print(f"{grid[i][j]} ", end="")
+                if (j + 1) % 3 == 0:
+                    print("| ", end="")
+            print()
+            if (i + 1) % 3 == 0:
+                print("  " + "-" * 25)
 
 
-def combine_dimacs(rule_file, puzzle_file, output_file):
-    """Combines the Sudoku rules and puzzle into a single DIMACS file"""
-    with open(output_file, 'w') as out, open(rule_file, 'r') as rules, open(puzzle_file, 'r') as puzzle:
-        for line in rules:
-            out.write(line)
-        for line in puzzle:
-            if not line.startswith('p') and not line.startswith('c'):
-                out.write(line)
-
-
-def solve_sudoku(rule_file, puzzle_file):
-    """Combines the rule file and puzzle, solves it, and prints the solution."""
-    combined_file = "combined.cnf"
-    combine_dimacs(rule_file, puzzle_file, combined_file)
-
-    solver = SATSolver(combined_file)
-    solution = solver.solve()
-
-    if not solution:
-        print("No solution found. Check your puzzle or encoding logic.")
+def print_sudoku_solution(self):
+    """Print Sudoku solution in a readable format."""
+    if not self.assignment:
+        print("No solution found!")
         return
 
-    print("Decoded Sudoku Grid:")
-    sudoku_grid = decode_solution(solution)
+    # Create 9x9 grid
+    grid = [[0 for _ in range(9)] for _ in range(9)]
 
-    if validate_sudoku(sudoku_grid):
-        print("Solved Sudoku:")
-        for row in sudoku_grid:
-            print(" ".join(map(str, row)))
-    else:
-        print("The solution is invalid. Check your rules and encoding.")
+    # Fill in the grid based on the assignment
+    for var in range(1, self.num_vars + 1):
+        if self.assignment.get(var, False):
+            # Convert variable number to row, col, value
+            var_str = str(var)
+            if len(var_str) == 3:  # Only process valid cell assignments
+                row = int(var_str[0]) - 1
+                col = int(var_str[1]) - 1
+                val = int(var_str[2])
+                if 0 <= row < 9 and 0 <= col < 9:
+                    grid[row][col] = val
+
+    # Print the grid
+    print("\nSudoku Solution:")
+    print("  " + "-" * 25)
+    for i in range(9):
+        print("| ", end="")
+        for j in range(9):
+            print(f"{grid[i][j]} ", end="")
+            if (j + 1) % 3 == 0:
+                print("| ", end="")
+        print()
+        if (i + 1) % 3 == 0:
+            print("  " + "-" * 25)
 
 
-def decode_solution(solution, n=9):
-    sudoku_grid = [[0 for _ in range(n)] for _ in range(n)]
+def main():
+    # Create solver instance
+    solver = SATSolver()
 
-    for variable, value in solution.items():
-        if value:  # Only consider True variables
-            abs_variable = abs(variable)
-            row = (abs_variable // 100) - 1
-            col = ((abs_variable % 100) // 10) - 1
-            num = abs_variable % 10
-            sudoku_grid[row][col] = num
+    # Specify input file
+    input_file = "cnf_files/sudoku5.cnf"
 
-    return sudoku_grid
+    try:
+        # Start timing for file reading
+        read_start_time = time.time()
+        print(f"Reading DIMACS file: {input_file}")
+        solver.read_dimacs(input_file)
+        read_time = time.time() - read_start_time
+        print(f"File reading time: {read_time:.3f} seconds")
+        print(f"Number of variables: {solver.num_vars}")
+        print(f"Number of clauses: {solver.num_clauses}")
 
+        # Start timing for solving
+        solve_start_time = time.time()
+        print("\nSolving...")
+        if solver.solve():
+            solve_time = time.time() - solve_start_time
+            print(f"Solution found in {solve_time:.3f} seconds!")
 
-def validate_sudoku(grid):
-    """Validates the Sudoku solution."""
-    n = len(grid)
-    subgrid_size = int(n**0.5)
+            # Start timing for writing solution
+            write_start_time = time.time()
+            solver.write_solution(input_file)
+            write_time = time.time() - write_start_time
+            print(f"Solution written to {input_file}.out in {write_time:.3f} seconds")
 
-    def is_valid_group(numbers):
-        """Check if numbers contain all digits from 1 to n exactly once."""
-        return sorted(numbers) == list(range(1, n + 1))
+            # Calculate total time
+            total_time = read_time + solve_time + write_time
+            print(f"\nTotal execution time: {total_time:.3f} seconds")
 
-    # Check rows
-    for row in grid:
-        if not is_valid_group(row):
-            return False
+            # Print the Sudoku solution
+            solver.print_sudoku_solution()
+        else:
+            solve_time = time.time() - solve_start_time
+            print(f"No solution exists! (Solved in {solve_time:.3f} seconds)")
+            with open(input_file + '.out', 'w') as f:
+                pass
 
-    # Check columns
-    for col in range(n):
-        if not is_valid_group([grid[row][col] for row in range(n)]):
-            return False
-
-    # Check subgrids
-    for box_row in range(0, n, subgrid_size):
-        for box_col in range(0, n, subgrid_size):
-            subgrid = [
-                grid[r][c]
-                for r in range(box_row, box_row + subgrid_size)
-                for c in range(box_col, box_col + subgrid_size)
-            ]
-            if not is_valid_group(subgrid):
-                return False
-
-    return True
+    except FileNotFoundError:
+        print(f"Error: Could not find input file '{input_file}'")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 
 if __name__ == "__main__":
-    sudoku_rules = "sudoku-rules-9x9.txt"
-    sudoku_puzzle = "sudoku1.cnf"
-
-    solve_sudoku(sudoku_rules, sudoku_puzzle)
+    main()
