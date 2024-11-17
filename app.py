@@ -162,41 +162,6 @@ class SATSolver:
                 print("  " + "-" * 25)
 
 
-def print_sudoku_solution(self):
-    """Print Sudoku solution in a readable format."""
-    if not self.assignment:
-        print("No solution found!")
-        return
-
-    # Create 9x9 grid
-    grid = [[0 for _ in range(9)] for _ in range(9)]
-
-    # Fill in the grid based on the assignment
-    for var in range(1, self.num_vars + 1):
-        if self.assignment.get(var, False):
-            # Convert variable number to row, col, value
-            var_str = str(var)
-            if len(var_str) == 3:  # Only process valid cell assignments
-                row = int(var_str[0]) - 1
-                col = int(var_str[1]) - 1
-                val = int(var_str[2])
-                if 0 <= row < 9 and 0 <= col < 9:
-                    grid[row][col] = val
-
-    # Print the grid
-    print("\nSudoku Solution:")
-    print("  " + "-" * 25)
-    for i in range(9):
-        print("| ", end="")
-        for j in range(9):
-            print(f"{grid[i][j]} ", end="")
-            if (j + 1) % 3 == 0:
-                print("| ", end="")
-        print()
-        if (i + 1) % 3 == 0:
-            print("  " + "-" * 25)
-
-
 def main():
     # Create solver instance
     solver = SATSolver()
