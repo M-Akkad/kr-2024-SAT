@@ -1,5 +1,6 @@
 import time
 from typing import List, Dict, Optional, Tuple
+import sys
 
 
 class SATSolver:
@@ -185,9 +186,19 @@ def combine_dimacs_files(rules_file: str, puzzle_file: str) -> Tuple[List[List[i
     return clauses, max_var
 
 def main():
+    if len(sys.argv) != 3:
+        print("Usage: SAT -S1 <puzzle_file>")
+        sys.exit(1)
+
+    strategy = sys.argv[1]
+    puzzle_file = sys.argv[2]
+
+    if strategy != "-S1":
+        print(f"Error: Unsupported strategy {strategy}. This script only supports -S1.")
+        sys.exit(1)
+
     solver = SATSolver()
     rules_file = "rules/sudoku-rules-9x9.txt"
-    puzzle_file = "cnf_files/sudoku2.cnf"
 
     try:
         print(f"Reading rules from: {rules_file}")
