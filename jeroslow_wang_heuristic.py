@@ -5,14 +5,23 @@ import sys
 
 
 class SATSolver:
+    """
+    Class to represent a SAT solver using the DPLL algorithm with the Two-Sided Jeroslow-Wang heuristic.
+    """
     def __init__(self):
+        """Initialize the SATSolver with default variables and counters."""
         self.num_vars: int = 0
         self.num_clauses: int = 0
         self.clauses: List[List[int]] = []
         self.assignment: Dict[int, bool] = {}
+        self.backtrack_count: int = 0
+        self.max_depth: int = 0
+        self.recursive_calls: int = 0
 
     def read_dimacs(self, filename: str) -> None:
-        """Read DIMACS format file."""
+        """
+        Read a CNF file in DIMACS format and extract clauses and variables.
+        """
         self.clauses = []
         with open(filename, 'r') as f:
             for line in f:
@@ -30,7 +39,7 @@ class SATSolver:
                         self.clauses.append(clause)
 
     def write_solution(self, filename: str) -> None:
-        """Write solution in DIMACS format."""
+        """Write the solution to a file in DIMACS format."""
         with open(filename + '.out', 'w') as f:
             if self.assignment:
                 for var in range(1, self.num_vars + 1):
@@ -39,7 +48,9 @@ class SATSolver:
 
     def unit_propagation(self, clauses: List[List[int]], assignment: Dict[int, bool]) -> Tuple[
         Optional[List[List[int]]], Optional[Dict[int, bool]]]:
-        """Perform unit propagation on clauses."""
+        """
+        Perform unit propagation to simplify clauses based on current assignments.
+        """
         while True:
             unit_clause = None
             for clause in clauses:
@@ -89,7 +100,7 @@ class SATSolver:
         return clauses, assignment
 
     def calculate_jw_score(self, clauses: List[List[int]], var: int) -> float:
-        """Calculate Two-Sided Jeroslow-Wang score for a variable."""
+        """Calculate the Two-Sided Jeroslow-Wang score for a given variable."""
         pos_score = 0.0
         neg_score = 0.0
 
@@ -108,7 +119,9 @@ class SATSolver:
         return max(pos_score, neg_score)
 
     def choose_variable_jw(self, clauses: List[List[int]], assignment: Dict[int, bool]) -> Optional[int]:
-        """Choose next variable using Two-Sided Jeroslow-Wang heuristic."""
+        """
+        Choose the next variable to assign using the Two-Sided Jeroslow-Wang heuristic.
+        """
         best_var = None
         best_score = -1.0
 
@@ -124,8 +137,10 @@ class SATSolver:
 
         return best_var
 
-    def dpll(self, clauses: List[List[int]], assignment: Dict[int, bool]) -> bool:
-        """DPLL algorithm implementation with JW heuristic."""
+    def dpll(self, clauses: List[List[int]], assignment: Dict[int, bool], depth: int = 0) -> bool:
+        self.max_depth = max(self.max_depth, depth)
+        self.recursive_calls += 1
+        """Implementation of the DPLL algorithm with the Two-Sided Jeroslow-Wang heuristic."""
         clauses, assignment = self.unit_propagation(clauses, assignment)
         if clauses is None:
             return False
@@ -152,14 +167,15 @@ class SATSolver:
             if self.dpll(clauses, new_assignment):
                 return True
 
+        self.backtrack_count += 1
         return False
 
     def solve(self) -> bool:
-        """Solve the SAT problem."""
+        """Solve the SAT problem by invoking the DPLL algorithm."""
         return self.dpll(self.clauses, {})
 
     def print_sudoku_solution(self):
-        """Print Sudoku solution in a readable format."""
+        """Format and print the solution for a Sudoku problem."""
         if not self.assignment:
             print("No solution found!")
             return
@@ -177,7 +193,7 @@ class SATSolver:
                         grid[row][col] = val
 
         print("\nSudoku Solution:")
-        print("  " + "-" * 25)
+        print("-" * 25)
         for i in range(9):
             print("| ", end="")
             for j in range(9):
@@ -186,12 +202,12 @@ class SATSolver:
                     print("| ", end="")
             print()
             if (i + 1) % 3 == 0:
-                print("  " + "-" * 25)
+                print("-" * 25)
 
 
 def combine_dimacs_files(rules_file: str, puzzle_file: str) -> Tuple[List[List[int]], int]:
     """
-    Combine rules and puzzle into one set of clauses and determine max variable number.
+    Combine the rules and puzzle into a single set of clauses in DIMACS format.
     Returns: (clauses, max_var_number)
     """
     clauses = []
@@ -227,6 +243,9 @@ def combine_dimacs_files(rules_file: str, puzzle_file: str) -> Tuple[List[List[i
 
 
 def main():
+    """
+    Main function to run the SAT solver with the Two-Sided Jeroslow-Wang heuristic strategy.
+    """
     if len(sys.argv) != 3:
         print("Usage: SAT -S3 <puzzle_file>")
         sys.exit(1)
@@ -270,9 +289,17 @@ def main():
 
             total_time = read_time + solve_time + write_time
             print(f"\nTotal execution time: {total_time:.3f} seconds")
+            print(f"Number of backtracks: {solver.backtrack_count}")
+            print(f"Maximum recursion depth: {solver.max_depth}")
+            print(f"Total recursive calls: {solver.recursive_calls}")
+
         else:
             solve_time = time.time() - solve_start_time
             print(f"No solution exists! (Solved in {solve_time:.3f} seconds)")
+            print(f"Number of backtracks: {solver.backtrack_count}")
+            print(f"Maximum recursion depth: {solver.max_depth}")
+            print(f"Total recursive calls: {solver.recursive_calls}")
+
             with open(puzzle_file + '.out', 'w') as f:
                 pass
 
