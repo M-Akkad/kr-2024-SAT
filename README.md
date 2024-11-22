@@ -59,14 +59,17 @@ If you added the solver to your PATH, you'll need to either:
   # For zsh users
   source ~/.zshrc
   ```
-  
+
 ### Example Commands
+
 - Run using strategy 1 on `sudoku1.cnf`:
+
   ```bash
   ./SAT -S1 sudoku1.cnf
   ```
 
 - Globally, if added to PATH:
+
   ```bash
   SAT -S2 sudoku1.cnf
   ```
@@ -78,10 +81,12 @@ If you added the solver to your PATH, you'll need to either:
 ### Common Issues
 
 #### 1. "SAT: Command not found"
+
 - Ensure you’re in the correct directory or use `./SAT` instead of `SAT`.
 - If you added the solver to your PATH, ensure it’s correctly configured.
 
 #### 2. "Syntax error near unexpected token"
+
 - Confirm the command syntax:
   ```bash
   ./SAT -S1 puzzle_file.cnf
@@ -92,6 +97,7 @@ If you added the solver to your PATH, you'll need to either:
   ```
 
 #### 3. PATH not updated
+
 - Reload the shell configuration:
   ```bash
   source ~/.bashrc
@@ -100,7 +106,9 @@ If you added the solver to your PATH, you'll need to either:
   ```bash
   export PATH=$PATH:/path/to/sat/directory
   ```
+
 ### Debugging Commands
+
 - Run with debugging enabled:
   ```bash
   bash -x ./SAT -S1 puzzle_file.cnf
@@ -122,14 +130,15 @@ If you added the solver to your PATH, you'll need to either:
 
 ---
 
-
 ## File Format
-- Puzzle files must be in [DIMACS CNF format]().
+
+- Puzzle files must be in [DIMACS CNF format](https://jix.github.io/varisat/manual/0.2.0/formats/dimacs.html#:~:text=The%20DIMACS%20CNF%20format%20is,a%20negation%20of%20a%20variable.).
 - Ensure valid syntax and no trailing or unexpected characters.
 
 ---
 
 ## Manual PATH Configuration
+
 If the automatic PATH configuration fails, manually add the SAT solver directory to your PATH.
 
 1. Open your shell configuration file (`~/.bashrc`, `~/.zshrc`, etc.):
